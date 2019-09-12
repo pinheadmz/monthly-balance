@@ -6,7 +6,8 @@
  *     --plugins <path/to/monthly-balance.js> \
  *     --reportwallet=<walletID> \
  *     --reportpath=<path/to/outputfile.txt> \
- *     --rescanheight=<height>
+ *     --rescanheight=<height> \
+ *     --timezone=<# hours + GMT>
  */
 
 'use strict';
@@ -28,6 +29,7 @@ class Plugin extends EventEmitter {
 
     this.wallet = this.node.config.str('reportwallet');
     this.rescanheight = this.node.config.uint('rescanheight');
+    this.timezone = this.node.config.int('timezone', 0);
 
     this.logger = node.logger.context('monthly-balance');
 
@@ -46,9 +48,10 @@ class Plugin extends EventEmitter {
    */
 
   async open() {
-    const now = new Date(Date.now());
+    const now = this.adjTime(new Date(Date.now()));
+
     this.stream.write(
-      ` -- OPENED at ${now.toUTCString()} Wallet: ${this.wallet}\n`);
+      ` -- OPENED at ${this.tzString(now)} Wallet: ${this.wallet}\n`);
     this.wallet = await this.wdb.get(this.wallet);
 
     // These events are sent to the wallet when blocks are added to the chain
@@ -114,9 +117,9 @@ class Plugin extends EventEmitter {
    */
 
   async block(entry) {
-    const date = new Date(entry.time * 1000);
+    const date = this.adjTime(new Date(entry.time * 1000));
     const blockMonth = date.getUTCMonth();
-    const dateStr = date.toUTCString();
+    const dateStr = this.tzString(date);
 
     this.logger.info(
       `Scanning block ${entry.height} (${dateStr})`);
@@ -138,6 +141,22 @@ class Plugin extends EventEmitter {
       this.wdb.rescanning = false;
       this.unlock();
       this.unlock = null;
+    }
+  }
+
+  adjTime(date) {
+    date.setUTCHours(date.getUTCHours() + this.timezone);
+    return date;
+  }
+
+  tzString(date) {
+    const dateStr = date.toUTCString();
+    if (this.timezone) {
+      return `${dateStr}` +
+       `${this.timezone > 0 ? '+' : ''}` +
+       `${this.timezone}`;
+    } else {
+      return dateStr;
     }
   }
 }

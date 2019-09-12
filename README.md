@@ -13,7 +13,8 @@ $ bwallet \
    --plugins <path/to/monthly-balance.js> \
    --reportwallet=<walletID> \
    --reportpath=<path/to/outputfile.txt> \
-   --rescanheight=<height>
+   --rescanheight=<height> \
+   --timezone=<# hours + GMT>
 ```
 
 ### Example Output:
@@ -47,8 +48,9 @@ This is currently necessary until
 [a socket timeout error](https://github.com/bcoin-org/bcoin/issues/842)
 is fixed. The plugin stubs the `'block rescan'` socket hook in WalletDB and
 checks the timestamp of every block that gets passed to the wallet. After
-scanning the _first block of each month_ (GMT by default), the wallet's
-balance is queried, reported in the log and added to the output file.
+scanning the _first block of each month_ (GMT by default, adjusted by the
+argument `--timezone=<number>`), the wallet's balance is queried, reported in
+the log and added to the output file.
 
 Once the rescan has finished (or if no rescan was triggered at all, i.e. no
 `--rescanheight` parameter was set), the plugin will continue to monitor each
