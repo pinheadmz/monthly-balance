@@ -39,7 +39,7 @@ class Plugin extends EventEmitter {
 
     // Output
     const file = this.node.config.str('reportpath',
-      path.resolve(__dirname, 'monthly-balance-log.txt'));
+      path.resolve(__dirname, `${this.wallet}-wallet-report.txt`));
     this.stream = fs.createWriteStream(file, {flags: 'a'});
   }
 
