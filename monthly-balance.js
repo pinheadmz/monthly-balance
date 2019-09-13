@@ -130,7 +130,9 @@ class Plugin extends EventEmitter {
       const bal = await this.wallet.getBalance();
       const report =
         `Block ${entry.height} (${dateStr}) ` +
-        `TXs: ${bal.tx} Balance: ${bal.confirmed / 1e8}`;
+        `TXs: ${bal.tx} ` +
+        `Unconfirmed: ${bal.unconfirmed / 1e8} ` +
+        `Confirmed: ${bal.confirmed / 1e8}`;
       this.logger.info(report);
       this.stream.write(report + '\n');
     }
