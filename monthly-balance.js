@@ -116,12 +116,18 @@ class Plugin extends EventEmitter {
     const blockMonth = date.getUTCMonth();
     const dateStr = this.tzString(date);
 
-    this.logger.info(
-      `Scanning block ${entry.height} (${dateStr})`);
+    // Skip the initialization
+    if (this.month === -1) {
+      this.month = blockMonth;
+      return;
+    }
+
+    this.logger.info(`Scanning block ${entry.height} (${dateStr})`);
 
     // If it's a new month, get the wallet balance and report
     if (blockMonth !== this.month) {
       this.month = blockMonth;
+
       const bal = await this.wallet.getBalance();
 
       try {
