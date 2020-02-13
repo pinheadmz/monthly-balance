@@ -1,0 +1,22 @@
+{
+  "name": "monthly-balance",
+  "version": "1.0.0",
+  "description": "Monthly balance plugin for bcoin bwallet",
+  "main": "monthly-balance.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pinheadmz/monthly-balance.git"
+  },
+  "author": "Matthew Zipkin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pinheadmz/monthly-balance/issues"
+  },
+  "homepage": "https://github.com/pinheadmz/monthly-balance#readme",
+  "dependencies": {
+    "googleapis": "^39.2.0"
+  }
+}

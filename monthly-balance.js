@@ -5,7 +5,6 @@
  *   bwallet \
  *     --plugins <path/to/monthly-balance.js> \
  *     --reportwallet=<walletID> \
- *     --reportpath=<path/to/outputfile.txt> \
  *     --rescanheight=<height> \
  *     --timezone=<# hours + GMT>
  */
@@ -17,6 +16,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const plugin = exports;
+const {writeSheet, writeLog} = require('./lib/sheets');
 
 class Plugin extends EventEmitter {
   constructor(node) {
@@ -36,11 +36,6 @@ class Plugin extends EventEmitter {
     this.lastBlockToScan = null;
     this.unlock = null;
     this.month = -1;
-
-    // Output
-    const file = this.node.config.str('reportpath',
-      path.resolve(__dirname, `${this.wallet}-wallet-report.txt`));
-    this.stream = fs.createWriteStream(file, {flags: 'a'});
   }
 
   /*
@@ -50,8 +45,8 @@ class Plugin extends EventEmitter {
   async open() {
     const now = this.adjTime(new Date(Date.now()));
 
-    this.stream.write(
-      ` -- OPENED at ${this.tzString(now)} Wallet: ${this.wallet}\n`);
+    await writeLog([`OPEN at ${this.tzString(now)} Wallet: ${this.wallet}`]);
+
     this.wallet = await this.wdb.get(this.wallet);
 
     // These events are sent to the wallet when blocks are added to the chain
@@ -128,13 +123,26 @@ class Plugin extends EventEmitter {
     if (blockMonth !== this.month) {
       this.month = blockMonth;
       const bal = await this.wallet.getBalance();
+
+      try {
+        const res = await writeSheet([
+          entry.height,
+          dateStr,
+          bal.tx,
+          bal.unconfirmed / 1e8,
+          bal.confirmed / 1e8
+        ]);
+        this.logger.info(res);
+      } catch(e) {
+        this.logger.error(e);
+      }
+
       const report =
         `Block ${entry.height} (${dateStr}) ` +
         `TXs: ${bal.tx} ` +
         `Unconfirmed: ${bal.unconfirmed / 1e8} ` +
         `Confirmed: ${bal.confirmed / 1e8}`;
       this.logger.info(report);
-      this.stream.write(report + '\n');
     }
 
     // If we have scanned all the way to the chain tip, historical data is done.
