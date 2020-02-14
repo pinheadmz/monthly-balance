@@ -2,8 +2,13 @@
 
 This is a plugin for a bcoin Wallet Node. It is intended for use with wallets
 that _are not plugins themselves_, meaning they are run in a separate process
-from a bcoin Full Node. It will record the balance of a specified wallet every
+from a bcoin Full Node. It will record the balances from an array of wallets every
 month, and can generate historical data with a rescan.
+
+The original branch of this plugin (`master`) prints the output to a flat file.
+This branch uses the
+[Google Sheets API](https://developers.google.com/sheets/api/guides/concepts)
+to record the data on Google Drive.
 
 ### Usage:
 
@@ -11,46 +16,59 @@ month, and can generate historical data with a rescan.
 $ bcoin --no-wallet
 $ bwallet \
    --plugins <path/to/monthly-balance.js> \
-   --reportwallet=<walletID> \
-   --reportpath=<path/to/outputfile.txt> \
-   --rescanheight=<height> \
-   --timezone=<# hours + GMT>
+   ( --rescanheight=<height> )
 ```
 
-### Example Output:
+### Configuration
 
-(Generated with a watch-only wallet watching one address:
-`1andreas3batLhQa2FawWjeyjCqyBzypd`)
+#### Enable Google Sheets API
 
-```
- -- OPENED at Wed, 11 Sep 2019 18:35:32 GMT Wallet: andreas
-Block 594382 (Wed, 11 Sep 2019 18:30:45 GMT) TXs: 0 Balance: 0
-Block 235300 (Thu, 09 May 2013 11:36:34 GMT) TXs: 0 Balance: 0
-Block 238952 (Sat, 01 Jun 2013 00:05:26 GMT) TXs: 2 Balance: 15.05
-Block 244160 (Mon, 01 Jul 2013 00:02:11 GMT) TXs: 5 Balance: 0
-Block 249525 (Thu, 01 Aug 2013 00:06:59 GMT) TXs: 7 Balance: 0
-Block 255362 (Sun, 01 Sep 2013 00:00:58 GMT) TXs: 9 Balance: 0.10005311
-Block 260989 (Tue, 01 Oct 2013 00:07:44 GMT) TXs: 17 Balance: 0.5656335
-Block 267188 (Fri, 01 Nov 2013 00:02:47 GMT) TXs: 22 Balance: 1.0431836
-Block 272375 (Sun, 01 Dec 2013 00:45:36 GMT) TXs: 28 Balance: 0.0585
-Block 272376 (Sat, 30 Nov 2013 23:25:57 GMT) TXs: 28 Balance: 0.0585
-Block 272381 (Sun, 01 Dec 2013 01:45:02 GMT) TXs: 28 Balance: 0.0585
-Block 277996 (Wed, 01 Jan 2014 00:11:09 GMT) TXs: 34 Balance: 0.01
-Block 283468 (Sat, 01 Feb 2014 00:05:46 GMT) TXs: 69 Balance: 0.30723543
-...
-```
+- Log in to Google and go to: https://console.developers.google.com/apis/dashboard
+
+- Enable the Google Sheets API
+
+- Under
+[credentials](https://console.developers.google.com/apis/api/sheets.googleapis.com/credentials)
+create a new "Service Account"
+
+- Set the permissions (you don't need any)
+
+- Click `CREATE KEY`, select the JSON option and download the file into `keys/credentials.json`
+in this repo. A sample file `credentials-sample.json` is in that directory now.
+
+
+#### Set up a sheet for the output
+
+- Create a new Google Sheet
+
+- Find the email address of the Serivce Account you created, and "share" the
+sheet with that account, giving it access to edit.
+
+- Name one tab `log`, and create a tab for each wallet (by name) you want a report for.
+
+
+#### Configure monthly-balance
+
+- Add the spreadsheet ID from the URL to a JSON file in `keys/config.json`, an example
+`config-sample.json` is there for reference.
+
+- Add an array of wallet names to the config file, these must match both the
+tabs in the Google Sheet, and your actual wallet.
+
+- Set the timezone relative to GMT, this will determine when months actually start.
+
+
 
 ### Method
 
 If `rescanheight` is given at launch this plugin will directly run a rescan on
-the wallet selected by `reportwallet` starting from the given height.
-This is currently necessary until
+the provided wallets starting from the given height. This is currently necessary until
 [a socket timeout error](https://github.com/bcoin-org/bcoin/issues/842)
 is fixed. The plugin stubs the `'block rescan'` socket hook in WalletDB and
 checks the timestamp of every block that gets passed to the wallet. After
 scanning the _first block of each month_ (GMT by default, adjusted by the
-argument `--timezone=<number>`), the wallet's balance is queried, reported in
-the log and added to the output file.
+`timezone` option) the wallet's balance is queried, reported in
+the log and added to the output.
 
 Once the rescan has finished (or if no rescan was triggered at all, i.e. no
 `--rescanheight` parameter was set), the plugin will continue to monitor each
