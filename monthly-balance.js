@@ -4,9 +4,7 @@
  *   bcoin --no-wallet
  *   bwallet \
  *     --plugins <path/to/monthly-balance.js> \
- *     --reportwallet=<walletID> \
- *     --rescanheight=<height> \
- *     --timezone=<# hours + GMT>
+ *     ( --rescanheight=<height> )
  */
 
 'use strict';
@@ -14,9 +12,14 @@
 const EventEmitter = require('events');
 const assert = require('assert');
 const fs = require('fs');
-const path = require('path');
+const Path = require('path');
 const plugin = exports;
-const {writeSheet, writeLog} = require('./lib/sheets');
+const {writeSheet} = require('./lib/sheets');
+
+const CONF_PATH = Path.join(__dirname, 'keys', 'config.json');
+const conf = JSON.parse(fs.readFileSync(CONF_PATH));
+const SPREADSHEET_ID = conf.sheetID;
+const WALLETS = conf.wallets;
 
 class Plugin extends EventEmitter {
   constructor(node) {
@@ -27,9 +30,9 @@ class Plugin extends EventEmitter {
     this.wdb = this.node.wdb;
     this.client = this.node.client;
 
-    this.wallet = this.node.config.str('reportwallet');
+    this.wallets = [];
     this.rescanheight = this.node.config.uint('rescanheight');
-    this.timezone = this.node.config.int('timezone', 0);
+    this.timezone = conf.timezone;
 
     this.logger = node.logger.context('monthly-balance');
 
@@ -45,9 +48,16 @@ class Plugin extends EventEmitter {
   async open() {
     const now = this.adjTime(new Date(Date.now()));
 
-    await writeLog([`OPEN at ${this.tzString(now)} Wallet: ${this.wallet}`]);
+    await writeSheet(
+      SPREADSHEET_ID,
+      'log',
+      [`OPEN at ${this.tzString(now)} Wallets: ${WALLETS.toString()}`]
+    );
 
-    this.wallet = await this.wdb.get(this.wallet);
+    for (const id of WALLETS) {
+      const wallet = await this.wdb.get(id);
+      this.wallets.push(wallet);
+    }
 
     // These events are sent to the wallet when blocks are added to the chain
     this.client.bind('block connect', async (entry, txs) => {
@@ -128,27 +138,33 @@ class Plugin extends EventEmitter {
     if (blockMonth !== this.month) {
       this.month = blockMonth;
 
-      const bal = await this.wallet.getBalance();
+      for (const wallet of this.wallets) {
+        const bal = await wallet.getBalance();
 
-      try {
-        const res = await writeSheet([
-          entry.height,
-          dateStr,
-          bal.tx,
-          bal.unconfirmed / 1e8,
-          bal.confirmed / 1e8
-        ]);
-        this.logger.info(res);
-      } catch(e) {
-        this.logger.error(e);
+        try {
+          const res = await writeSheet(
+            SPREADSHEET_ID,
+            wallet.id,
+            [
+              entry.height,
+              dateStr,
+              bal.tx,
+              bal.unconfirmed / 1e8,
+              bal.confirmed / 1e8
+            ]
+          );
+          this.logger.info(res);
+        } catch(e) {
+          this.logger.error(e);
+        }
+
+        const report =
+          `Wallet: ${wallet.id} `
+          + `TXs: ${bal.tx} `
+          + `Unconfirmed: ${bal.unconfirmed / 1e8} `
+          + `Confirmed: ${bal.confirmed / 1e8}`;
+        this.logger.info(report);
       }
-
-      const report =
-        `Block ${entry.height} (${dateStr}) ` +
-        `TXs: ${bal.tx} ` +
-        `Unconfirmed: ${bal.unconfirmed / 1e8} ` +
-        `Confirmed: ${bal.confirmed / 1e8}`;
-      this.logger.info(report);
     }
 
     // If we have scanned all the way to the chain tip, historical data is done.
