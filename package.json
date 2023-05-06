@@ -17,6 +17,6 @@
   },
   "homepage": "https://github.com/pinheadmz/monthly-balance#readme",
   "dependencies": {
-    "googleapis": "^39.2.0"
+    "googleapis": "^118.0.0"
   }
 }
